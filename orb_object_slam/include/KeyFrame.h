@@ -50,7 +50,6 @@ public:
     cv::Mat GetPose();                // get world to camera pose
     cv::Mat GetPoseInverse();         // get camera to world pose
     cv::Mat GetCameraCenter();        // Twc
-    cv::Mat GetStereoCenter();
     cv::Mat GetRotation();
     cv::Mat GetTranslation(); // Tcw
 

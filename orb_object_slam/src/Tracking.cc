@@ -357,17 +357,10 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp,
 			mCurrentFrame = Frame(mImGray, timestamp, mpIniORBextractor, mpORBVocabulary, mK, mDistCoef, mbf, mThDepth);
 		}
 		else
-		{ // read (truth) depth /stereo image for first frame
-			// not good to read first frame's predicted depth by object. quite inaccurate.
-			// orb slam will create left/right coordinates based on that, and will be used for optimizer.
-			std::string right_kitti_img_file = base_data_folder + "/000000_right.png";
-			cv::Mat right_stereo_img = cv::imread(right_kitti_img_file, 0);
-			if (!right_stereo_img.data)
-				ROS_ERROR_STREAM("Cannot read first stereo file  " << right_kitti_img_file);
-			else
-				ROS_WARN_STREAM("Read first right stereo size  " << right_stereo_img.rows);
-			std::cout << "Read first right depth size  " << right_stereo_img.rows << "  baseline  " << mbf << std::endl;
-			mCurrentFrame = Frame(mImGray, right_stereo_img, timestamp, mpORBextractorLeft, mpORBextractorRight, mpORBVocabulary, mK, mDistCoef, mbf, mThDepth);
+		{ 
+			// TODELETE
+			std::cout << "Read first right depth size  " << std::endl;
+			
 		}
 	}
 	else
