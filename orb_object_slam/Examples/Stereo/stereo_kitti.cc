@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
         // Pass the images to the SLAM system
         clock_t begin1 = clock();
-        SLAM.TrackStereo(imLeft, imRight, tframe);
+        // SLAM.TrackStereo(imLeft, imRight, tframe);
         std::cout << "orb slam take time:  " << double(clock() - begin1) / CLOCKS_PER_SEC << std::endl;
         // 	std::cout<<double(clock() - begin1) / CLOCKS_PER_SEC<<std::endl;
 

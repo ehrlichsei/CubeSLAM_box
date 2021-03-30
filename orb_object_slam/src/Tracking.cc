@@ -328,87 +328,6 @@ void Tracking::SetViewer(Viewer *pViewer)
 	mpViewer = pViewer;
 }
 
-cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp)
-{
-	mImGray = imRectLeft;
-	cv::Mat imGrayRight = imRectRight;
-
-	if (mImGray.channels() == 3)
-	{
-		if (mbRGB)
-		{
-			cvtColor(mImGray, mImGray, CV_RGB2GRAY);
-			cvtColor(imGrayRight, imGrayRight, CV_RGB2GRAY);
-		}
-		else
-		{
-			cvtColor(mImGray, mImGray, CV_BGR2GRAY);
-			cvtColor(imGrayRight, imGrayRight, CV_BGR2GRAY);
-		}
-	}
-	else if (mImGray.channels() == 4)
-	{
-		if (mbRGB)
-		{
-			cvtColor(mImGray, mImGray, CV_RGBA2GRAY);
-			cvtColor(imGrayRight, imGrayRight, CV_RGBA2GRAY);
-		}
-		else
-		{
-			cvtColor(mImGray, mImGray, CV_BGRA2GRAY);
-			cvtColor(imGrayRight, imGrayRight, CV_BGRA2GRAY);
-		}
-	}
-	// if stereo or RGBD, also set depth and stereo point for it.
-	mCurrentFrame = Frame(mImGray, imGrayRight, timestamp, mpORBextractorLeft, mpORBextractorRight, mpORBVocabulary, mK, mDistCoef, mbf, mThDepth);
-
-	if (whether_detect_object)
-		mCurrentFrame.raw_img = mImGray.clone();
-
-	Track();
-
-	return mCurrentFrame.mTcw.clone();
-}
-
-cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, const double &timestamp)
-{
-	mImGray = imRGB;
-	cv::Mat imDepth = imD;
-
-	if (mImGray.channels() == 3)
-	{
-		if (mbRGB)
-			cvtColor(mImGray, mImGray, CV_RGB2GRAY);
-		else
-			cvtColor(mImGray, mImGray, CV_BGR2GRAY);
-	}
-	else if (mImGray.channels() == 4)
-	{
-		if (mbRGB)
-			cvtColor(mImGray, mImGray, CV_RGBA2GRAY);
-		else
-			cvtColor(mImGray, mImGray, CV_BGRA2GRAY);
-	}
-
-	if (mDepthMapFactor != 1 || imDepth.type() != CV_32F)
-		;
-	imDepth.convertTo(imDepth, CV_32F, mDepthMapFactor);
-
-	mCurrentFrame = Frame(mImGray, imDepth, timestamp, mpORBextractorLeft, mpORBVocabulary, mK, mDistCoef, mbf, mThDepth);
-
-	if (whether_detect_object)
-		mCurrentFrame.raw_img = mImGray.clone();
-
-	if (mCurrentFrame.mnId == 0)
-	{
-		mpMap->img_height = mImGray.rows;
-		mpMap->img_width = mImGray.cols;
-	}
-
-	Track();
-
-	return mCurrentFrame.mTcw.clone();
-}
 
 cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp, int msg_seq_id)
 {
@@ -503,7 +422,7 @@ void Tracking::Track()
 	if (mState == NOT_INITIALIZED) // initialization
 	{
 		if (mSensor == System::STEREO || mSensor == System::RGBD)
-			StereoInitialization(); // for stereo or RGBD, the first frame is used to initialize the keyframe and map
+			std::cout<<"StereoInitialization()"<<std::endl; // for stereo or RGBD, the first frame is used to initialize the keyframe and map
 		else
 		{
 			bool special_initialization = false;
@@ -512,7 +431,7 @@ void Tracking::Track()
 				if (mono_firstframe_truth_depth_init)
 				{
 					special_initialization = true;
-					StereoInitialization(); // if first frame has truth depth, we can initialize simiar to stereo/rgbd. create keyframe for it.
+					// StereoInitialization(); // if first frame has truth depth, we can initialize simiar to stereo/rgbd. create keyframe for it.
 				}
 				else if (mono_firstframe_Obj_depth_init)
 				{
@@ -788,74 +707,6 @@ void Tracking::Track()
 	}
 }
 
-void Tracking::StereoInitialization()
-{
-	std::cout << "Come to stereo initialization !" << std::endl;
-	if (mCurrentFrame.N > 500)
-	{
-		// Set Frame pose to the origin
-		if (build_worldframe_on_ground) // transform initial pose and map to ground frame
-			mCurrentFrame.SetPose(GroundToInit);
-		else
-			mCurrentFrame.SetPose(cv::Mat::eye(4, 4, CV_32F));
-
-		// Create KeyFrame.    set (current) first frame as keyframe
-		KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpMap, mpKeyFrameDB);
-
-		// ROS_WARN_STREAM("Created new keyframe! Stereo Init   " << pKFini->mnId << "   total ID  " << pKFini->mnFrameId);
-
-		// Insert KeyFrame in the map
-		mpMap->AddKeyFrame(pKFini);
-
-		// Create MapPoints and asscoiate to KeyFrame
-		double mean_depth = 0;
-		for (int i = 0; i < mCurrentFrame.N; i++)
-		{
-			float z = mCurrentFrame.mvDepth[i];
-			if (z > 0) // monocular has negative value
-			{
-				mean_depth += z;
-				cv::Mat x3D = mCurrentFrame.UnprojectStereo(i);
-				MapPoint *pNewMP = new MapPoint(x3D, pKFini, mpMap); // initialize new map points
-				pNewMP->AddObservation(pKFini, i);
-				pKFini->AddMapPoint(pNewMP, i);
-				pNewMP->ComputeDistinctiveDescriptors();
-				pNewMP->UpdateNormalAndDepth();
-				mpMap->AddMapPoint(pNewMP);
-				mCurrentFrame.mvpMapPoints[i] = pNewMP;
-			}
-		}
-
-		cout << "Mean init frame depth  " << mean_depth / (double)mpMap->MapPointsInMap() << endl;
-		if (mpMap->MapPointsInMap() == 0)
-		{
-			ROS_ERROR_STREAM("Zero map point initiated, Wrong!!");
-			exit(0);
-		}
-		cout << "New map created with " << mpMap->MapPointsInMap() << "  out of all  " << mCurrentFrame.N << " feature points" << endl;
-
-		mpLocalMapper->InsertKeyFrame(pKFini);
-
-		mLastFrame = Frame(mCurrentFrame);
-		mnLastKeyFrameId = mCurrentFrame.mnId;
-		mpLastKeyFrame = pKFini;
-
-		mvpLocalKeyFrames.push_back(pKFini);
-		mvpLocalMapPoints = mpMap->GetAllMapPoints();
-		mpReferenceKF = pKFini;
-		mCurrentFrame.mpReferenceKF = pKFini;
-
-		mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
-
-		mpMap->mvpKeyFrameOrigins.push_back(pKFini);
-
-		mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
-
-		mState = OK;
-	}
-	else
-		cout << "Not enough points for initialization  " << mCurrentFrame.N << std::endl;
-}
 
 void Tracking::MonoObjDepthInitialization()
 {
