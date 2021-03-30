@@ -54,18 +54,6 @@ or
 rosbag play '/home/yuli/Software/data/data_rosbag/living_room_complete.bag' /camera/image:=/camera/image_raw 
 ```
 
-# how to run orb_object_slam for KITTI 07 online
-## change the code
-in tracking.cc 
-change the text around line 1587
-
-char frame_index_c_line[256];
-sprintf(frame_index_c_line, "%06d", (int)pKF->mnFrameId); // format into 6 digit
-char frame_index_c_yolo[256];
-sprintf(frame_index_c_yolo, "%06d", (int)pKF->mnFrameId); // format into 6 digit
-
-// sprintf(obj_2d_txt_postfix, "_yolov3_%.2f.txt", obj_det_2d_thre);
-sprintf(obj_2d_txt_postfix, "_3d_cuboids.txt");
 
 
 ## run by roslaunch
