@@ -214,6 +214,7 @@ void detect_3d_cuboid::detect_cuboid(const cv::Mat &rgb_img, const Matrix4d &tra
 
 			std::vector<double> cam_roll_samples;
 			std::vector<double> cam_pitch_samples;
+			// std::cout<<"euler angle:"<< cam_pose_raw.euler_angle(0)*57.3<< std::endl<<cam_pose_raw.euler_angle(1)*57.3<< std::endl<<cam_pose_raw.euler_angle(2)*57.3<< std::endl;
 			if (whether_sample_cam_roll_pitch)
 			{
 				linespace<double>(cam_pose_raw.euler_angle(0) - 6.0 / 180.0 * M_PI, cam_pose_raw.euler_angle(0) + 6.0 / 180.0 * M_PI, 3.0 / 180.0 * M_PI, cam_roll_samples);
@@ -516,6 +517,7 @@ void detect_3d_cuboid::detect_cuboid(const cv::Mat &rgb_img, const Matrix4d &tra
 
 		// %finally rank all proposals. [normalized_error   skew_error]
 		int actual_cuboid_num_small = std::min(max_cuboid_num, (int)raw_obj_proposals.size());
+		// cout<<"proposals size: "<<(int)raw_obj_proposals.size()<<endl;
 		VectorXd all_combined_score(raw_obj_proposals.size());
 		for (int box_id = 0; box_id < raw_obj_proposals.size(); box_id++)
 		{

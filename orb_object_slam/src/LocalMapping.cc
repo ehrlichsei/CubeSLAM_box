@@ -236,8 +236,8 @@ void LocalMapping::ProcessNewKeyFrame()
         }
     }
 
-    std::cout << "Mapping: recent buffer pts:  " << mlpRecentAddedMapPoints.size() << "   Frame created pts:  " << newaddRecent
-              << "   Frame associated pts:   " << newaddobservation << std::endl;
+    // std::cout << "Mapping: recent buffer pts:  " << mlpRecentAddedMapPoints.size() << "   Frame created pts:  " << newaddRecent
+            //   << "   Frame associated pts:   " << newaddobservation << std::endl;
 
     // Update links in the Covisibility Graph
     mpCurrentKeyFrame->UpdateConnections();
@@ -567,7 +567,7 @@ void LocalMapping::CreateNewMapPoints()
             nnew++;
         }
     }
-    std::cout << "New Triangulated pt num:   " << nnew << std::endl;
+    // std::cout << "New Triangulated pt num:   " << nnew << std::endl;
     // for features that haven't triangulated, use object depth initiliaztion.
     // don't do initialization here for dynamic objects. do it in tracking.cc
     // NOTE doesn't change tracker->mCurrentFrame, not pointer!   Keyframe is shared.

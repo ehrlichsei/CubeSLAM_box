@@ -62,7 +62,7 @@ class detect_3d_cuboid
       void detect_cuboid(const cv::Mat &rgb_img, const Eigen::Matrix4d &transToWolrd, const Eigen::MatrixXd &obj_bbox_coors, Eigen::MatrixXd edges,
                          std::vector<ObjectSet> &all_object_cuboids);
 
-      bool whether_plot_detail_images = false;
+      bool whether_plot_detail_images = false  ;
       bool whether_plot_final_images = false;
       bool whether_save_final_images = false;
       cv::Mat cuboids_2d_img; // save to this opencv mat

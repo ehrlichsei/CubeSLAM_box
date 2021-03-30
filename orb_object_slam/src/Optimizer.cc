@@ -913,7 +913,7 @@ void Optimizer::LocalBACameraPointObjects(KeyFrame *pKF, bool *pbStopFlag, Map *
         }
     }
 
-    std::cout << "LocalBAPointObjects num of local points / objects / frames:  " << lLocalMapPoints.size() << "  " << lLocalMapObjects.size() << "  " << lLocalKeyFrames.size() << std::endl;
+    // std::cout << "LocalBAPointObjects num of local points / objects / frames:  " << lLocalMapPoints.size() << "  " << lLocalMapObjects.size() << "  " << lLocalKeyFrames.size() << std::endl;
 
     // estimate object camera edges.
     int estimated_cam_obj_edges = 0;
@@ -924,6 +924,7 @@ void Optimizer::LocalBACameraPointObjects(KeyFrame *pKF, bool *pbStopFlag, Map *
     }
 
 #define ObjectFixScale // use when scale is provided and fixed. such as KITTI
+
 
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
@@ -991,9 +992,11 @@ void Optimizer::LocalBACameraPointObjects(KeyFrame *pKF, bool *pbStopFlag, Map *
 
 #ifdef ObjectFixScale
         if (scene_unique_id == kitti)
-            vObject->fixedscale = Eigen::Vector3d(1.9420, 0.8143, 0.7631);
+            {vObject->fixedscale = Eigen::Vector3d(1.9420, 0.8143, 0.7631);}
+        else if (scene_unique_id == living_room)
+            {vObject->fixedscale = Eigen::Vector3d(0.3, 0.4, 0.5);}
         else
-            ROS_ERROR_STREAM("Please see cuboid scale!!!, otherwise use VertexCuboid()");
+            {ROS_ERROR_STREAM("Please see cuboid scale!!!, otherwise use VertexCuboid()");}
 
         // set the roll=M_PI/2, pitch=0, yaw., later did this in tracking.
         // initialize object absolute height?  or set based on camera height?
@@ -1250,6 +1253,11 @@ void Optimizer::LocalBACameraPointObjects(KeyFrame *pKF, bool *pbStopFlag, Map *
                         e->max_outside_margin_ratio = 2;
                         e->prior_object_half_size = Eigen::Vector3d(1.9420, 0.8143, 0.7631);
                     }
+                    else if (scene_unique_id == living_room)
+                    {
+                        e->max_outside_margin_ratio = 2;
+                        e->prior_object_half_size = Eigen::Vector3d(0.3, 0.4, 0.5);
+                    }
                     optimizer.addEdge(e);
                 }
             }
@@ -1380,7 +1388,7 @@ void Optimizer::LocalBACameraPointObjects(KeyFrame *pKF, bool *pbStopFlag, Map *
         }
     }
 
-    std::cout << "BA edges  point-cam  object-cam  " << vpMapPointEdgeMono.size() + vpMapPointEdgeStereo.size() << "  " << vpEdgesCameraObject.size() << std::endl;
+    // std::cout << "BA edges  point-cam  object-cam  " << vpMapPointEdgeMono.size() + vpMapPointEdgeStereo.size() << "  " << vpEdgesCameraObject.size() << std::endl;
 
     if (pbStopFlag)
         if (*pbStopFlag)
@@ -1660,7 +1668,7 @@ void Optimizer::LocalBACameraPointObjectsDynamic(KeyFrame *pKF, bool *pbStopFlag
         }
     }
 
-    std::cout << "LocalBAPointObjects num of local points / objects / frames:  " << lLocalMapPoints.size() << "  " << lLocalMapObjects.size() << "  " << lLocalKeyFrames.size() << std::endl;
+    // std::cout << "LocalBAPointObjects num of local points / objects / frames:  " << lLocalMapPoints.size() << "  " << lLocalMapObjects.size() << "  " << lLocalKeyFrames.size() << std::endl;
 
 #define ObjectFixScale
 
@@ -1753,9 +1761,11 @@ void Optimizer::LocalBACameraPointObjectsDynamic(KeyFrame *pKF, bool *pbStopFlag
 
 #ifdef ObjectFixScale
             if (scene_unique_id == kitti)
-                vObject->fixedscale = Eigen::Vector3d(1.9420, 0.8143, 0.7631); // for kitti object, scale may don't need to set...
+                {vObject->fixedscale = Eigen::Vector3d(1.9420, 0.8143, 0.7631);} // for kitti object, scale may don't need to set...
+            else if (scene_unique_id == living_room)
+                {vObject->fixedscale = Eigen::Vector3d(0.3, 0.4, 0.5);} // for kitti object, scale may don't need to set...
             else
-                ROS_ERROR_STREAM("Please see cuboid scale!!!, otherwise use VertexCuboid()");
+                {ROS_ERROR_STREAM("Please see cuboid scale!!!, otherwise use VertexCuboid()");}
 
             if (scene_unique_id == kitti)
             {
@@ -1973,7 +1983,7 @@ void Optimizer::LocalBACameraPointObjectsDynamic(KeyFrame *pKF, bool *pbStopFlag
                     Eigen::Matrix<double, 2, 1> obs;
                     obs << kpUn.pt.x, kpUn.pt.y;
 
-                    // point-object-camera
+                    // point-era
                     g2o::EdgeDynamicPointCuboidCamera *e = new g2o::EdgeDynamicPointCuboidCamera();
 
                     e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKFi->mnId)));                           //camera
@@ -2112,6 +2122,9 @@ void Optimizer::LocalBACameraPointObjectsDynamic(KeyFrame *pKF, bool *pbStopFlag
                         e->max_outside_margin_ratio = 2;
                         e->prior_object_half_size = Eigen::Vector3d(1.9420, 0.8143, 0.7631);
                     }
+                    else if (scene_unique_id == living_room)
+                        {e->prior_object_half_size = Eigen::Vector3d(0.3, 0.4, 0.5);}
+
                     optimizer.addEdge(e);
                 }
             }
@@ -2343,8 +2356,8 @@ void Optimizer::LocalBACameraPointObjectsDynamic(KeyFrame *pKF, bool *pbStopFlag
         }
     }
 
-    std::cout << "BA edges  point-cam: " << vpMapPointEdgeMono.size() + vpMapPointEdgeStereo.size() << "   object-cam: " << vpEdgesCameraObject.size()
-              << "   pt-obj-cam: " << vpEdgesCameraPointObject.size() << "   pt-obj: " << vpEdgesPointObject.size() << "   obj-vel: " << allmotionedges.size() << std::endl;
+    // std::cout << "BA edges  point-cam: " << vpMapPointEdgeMono.size() + vpMapPointEdgeStereo.size() << "   object-cam: " << vpEdgesCameraObject.size()
+            //   << "   pt-obj-cam: " << vpEdgesCameraPointObject.size() << "   pt-obj: " << vpEdgesPointObject.size() << "   obj-vel: " << allmotionedges.size() << std::endl;
 
     if (pbStopFlag)
         if (*pbStopFlag)

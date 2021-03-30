@@ -64,6 +64,9 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/ModelCoefficients.h>
 
+#define Test_Input
+
+
 using namespace std;
 
 namespace ORB_SLAM2
@@ -227,7 +230,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
 			mDepthMapFactor = 1.0f / mDepthMapFactor;
 	}
 
-	n.param<double>("obj_det_2d_thre", obj_det_2d_thre, 0.2);
+	n.param<double>("obj_det_2d_thre", obj_det_2d_thre, 0.15);
 	n.param<bool>("build_worldframe_on_ground", build_worldframe_on_ground, false); // transform initial pose and map to ground frame
 	n.param<bool>("triangulate_dynamic_pts", triangulate_dynamic_pts, false);
 
@@ -236,6 +239,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
 	whether_save_final_optimized_cuboids = false;
 	if (whether_detect_object)
 	{
+
 		n.param<bool>("use_truth_trackid", use_truth_trackid, false);
 		if (!whether_read_offline_cuboidtxt)
 		{
@@ -251,6 +255,9 @@ Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
 			{
 				std::string save_object_pose_txt = base_data_folder + "/slam_output/orb_live_pred_objs_temp.txt";
 				save_online_detected_cuboids.open(save_object_pose_txt.c_str());
+				// save_online_detected_cuboids<<"shit!"<<"\n";
+				// std::cout<<"!!! txt is open: "<< save_object_pose_txt<<std::endl;
+				// save_online_detected_cuboids.close();
 			}
 		}
 		if (whether_read_offline_cuboidtxt)
@@ -270,7 +277,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary *pVoc, FrameDrawer *pFrameDrawer,
 		}
 	}
 
-	std::string truth_pose_txts = base_data_folder + "/pose_truth.txt";
+	std::string truth_pose_txts = base_data_folder + "/5_odometry/truth_cam_poses.txt";
 	Eigen::MatrixXd truth_cam_poses(5, 8);
 	if (read_all_number_txt(truth_pose_txts, truth_cam_poses))
 	{
@@ -425,6 +432,7 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp,
 	// create frame and detect features!
 	if (mState == NOT_INITIALIZED || mState == NO_IMAGES_YET)
 	{
+		ROS_WARN_STREAM("Create Frame!!!!");
 		if ((!mono_firstframe_truth_depth_init) || (mCurrentFrame.mnId > 0))
 		{
 			mCurrentFrame = Frame(mImGray, timestamp, mpIniORBextractor, mpORBVocabulary, mK, mDistCoef, mbf, mThDepth);
@@ -794,7 +802,7 @@ void Tracking::StereoInitialization()
 		// Create KeyFrame.    set (current) first frame as keyframe
 		KeyFrame *pKFini = new KeyFrame(mCurrentFrame, mpMap, mpKeyFrameDB);
 
-		ROS_WARN_STREAM("Created new keyframe! Stereo Init   " << pKFini->mnId << "   total ID  " << pKFini->mnFrameId);
+		// ROS_WARN_STREAM("Created new keyframe! Stereo Init   " << pKFini->mnId << "   total ID  " << pKFini->mnFrameId);
 
 		// Insert KeyFrame in the map
 		mpMap->AddKeyFrame(pKFini);
@@ -852,7 +860,7 @@ void Tracking::StereoInitialization()
 void Tracking::MonoObjDepthInitialization()
 {
 	std::cout << "Come to Mono Object depth initialization !" << std::endl;
-	ROS_WARN_STREAM("Created new keyframe!   " << 0 << "   total ID  " << 0);
+	// ROS_WARN_STREAM("Created new keyframe!   " << 0 << "   total ID  " << 0);
 	if (mCurrentFrame.N > 500)
 	{
 		// Set Frame pose to the origin
@@ -1580,22 +1588,30 @@ void Tracking::DetectCuboid(KeyFrame *pKF)
 	}
 	else
 	{
-		std::string data_edge_data_dir = base_data_folder + "/edge_detection/LSD/";
-		std::string data_yolo_obj_dir = base_data_folder + "/mats/filter_match_2d_boxes_txts/";
-		char frame_index_c[256];
-		sprintf(frame_index_c, "%04d", (int)pKF->mnFrameId); // format into 4 digit
+		std::string data_edge_data_dir = base_data_folder + "/3_line_lbd/line_txt/";
+		std::string data_yolo_obj_dir = base_data_folder + "/2_bbox/yolov3_bbox/";
+		char frame_index_c_line[256];
+		sprintf(frame_index_c_line, "%06d", (int)pKF->mnFrameId); // format into 6 digit
+		char frame_index_c_yolo[256];
+		sprintf(frame_index_c_yolo, "%06d", (int)pKF->mnFrameId); // format into 6 digit
+
 
 		// read detected edges
 		Eigen::MatrixXd all_lines_raw(100, 4); // 100 is some large frame number,   the txt edge index start from 0
-		read_all_number_txt(data_edge_data_dir + frame_index_c + "_edge.txt", all_lines_raw);
+		read_all_number_txt(data_edge_data_dir + frame_index_c_line + "_edge.txt", all_lines_raw);
 
 		// read yolo object detection
 		Eigen::MatrixXd raw_all_obj2d_bbox(10, 5);
 		std::vector<string> object_classes;
 		char obj_2d_txt_postfix[256];
-		sprintf(obj_2d_txt_postfix, "_yolo2_%.2f.txt", obj_det_2d_thre);
-		if (!read_obj_detection_txt(data_yolo_obj_dir + frame_index_c + obj_2d_txt_postfix, raw_all_obj2d_bbox, object_classes))
-			ROS_ERROR_STREAM("Cannot read yolo txt  " << data_yolo_obj_dir + frame_index_c + obj_2d_txt_postfix);
+		sprintf(obj_2d_txt_postfix, "_yolov3_%.2f.txt", obj_det_2d_thre);
+		// sprintf(obj_2d_txt_postfix, "_yolov3_0.15.txt");
+		#ifdef Test_Input
+		cout<< "reading frame_index_c_yolo: "<<frame_index_c_yolo<<endl;
+		#endif
+		if (!read_obj_detection_txt(data_yolo_obj_dir + frame_index_c_yolo + obj_2d_txt_postfix, raw_all_obj2d_bbox, object_classes))
+			ROS_ERROR_STREAM("Cannot read yolo txt  " << data_yolo_obj_dir + frame_index_c_yolo + obj_2d_txt_postfix);
+
 
 		// remove some 2d boxes too close to boundary.
 		int boundary_threshold = 20;
@@ -1622,6 +1638,8 @@ void Tracking::DetectCuboid(KeyFrame *pKF)
 
 		pop_pose_to_ground = frame_pose_to_ground;
 		Eigen::Matrix4f cam_transToGround = Converter::toMatrix4f(pop_pose_to_ground);
+		// std::cout<<"###start detecting cuboids, current pose:"<<std::endl;
+		// std::cout<<"cam T:"<<cam_transToGround.cast<double>()<<std::endl;
 		detect_cuboid_obj->detect_cuboid(pKF->raw_img, cam_transToGround.cast<double>(), all_obj2d_bbox_infov_mat, all_lines_raw, all_obj_cubes);
 	}
 
@@ -1694,8 +1712,8 @@ void Tracking::DetectCuboid(KeyFrame *pKF)
 		}
 	}
 
-	std::cout << "created local object num   " << pKF->local_cuboids.size() << std::endl;
-	std::cout << "Detect cuboid for pKF id: " << pKF->mnId << "  total id: " << pKF->mnFrameId << "  numObj: " << pKF->local_cuboids.size() << std::endl;
+	// std::cout << "created local object num   " << pKF->local_cuboids.size() << std::endl;
+	// std::cout << "Detect cuboid for pKF id: " << pKF->mnId << "  total id: " << pKF->mnFrameId << "  numObj: " << pKF->local_cuboids.size() << std::endl;
 
 	if (whether_save_online_detected_cuboids)
 	{
@@ -1709,6 +1727,9 @@ void Tracking::DetectCuboid(KeyFrame *pKF)
 				cube_pose << raw_cuboid->pos[0], raw_cuboid->pos[1], raw_cuboid->pos[2], 0, 0, raw_cuboid->rotY,
 					raw_cuboid->scale[0], raw_cuboid->scale[1], raw_cuboid->scale[2];
 				save_online_detected_cuboids << pKF->mnFrameId << "  " << cube_pose.transpose() << "\n";
+				// save_online_detected_cuboids.close();
+				// std::cout<<"!!! cube_pose is saved: "<<std::endl<< cube_pose<<std::endl;
+
 			}
 		}
 	}
@@ -1874,8 +1895,8 @@ void Tracking::AssociateCuboids(KeyFrame *pKF)
 					}
 	}
 
-	std::cout << "begin to associate cuboids #candidate:   " << LocalObjectsCandidates.size() << "   #landmarks   " << LocalObjectsLandmarks.size()
-			  << "   #localKFs   " << mvpLocalKeyFrames.size() << std::endl;
+	// std::cout << "begin to associate cuboids #candidate:   " << LocalObjectsCandidates.size() << "   #landmarks   " << LocalObjectsLandmarks.size()
+			//   << "   #localKFs   " << mvpLocalKeyFrames.size() << std::endl;
 	int largest_shared_num_points_thres = 10;
 	if (mono_allframe_Obj_depth_init)
 		largest_shared_num_points_thres = 20;
@@ -2049,7 +2070,7 @@ void Tracking::CreateNewKeyFrame()
 
 	KeyFrame *pKF = new KeyFrame(mCurrentFrame, mpMap, mpKeyFrameDB);
 
-	ROS_WARN_STREAM("Created new keyframe!   " << pKF->mnId << "   total ID  " << pKF->mnFrameId);
+	// ROS_WARN_STREAM("Created new keyframe!   " << pKF->mnId << "   total ID  " << pKF->mnFrameId);
 
 	mpReferenceKF = pKF;
 	mCurrentFrame.mpReferenceKF = pKF;
@@ -2531,7 +2552,7 @@ void Tracking::CreateNewKeyFrame()
 								}
 					}
 				}
-				std::cout << "Potential plane pt size    " << potential_plane_points.size() << "   " << ground_local_KFs.size() << std::endl;
+				// std::cout << "Potential plane pt size    " << potential_plane_points.size() << "   " << ground_local_KFs.size() << std::endl;
 
 				// TODO can we directly search height plane to find points supporting it?? not using ransac. Song used it.
 				pcl::SACSegmentation<pcl::PointXYZ> *seg = new pcl::SACSegmentation<pcl::PointXYZ>();

@@ -112,7 +112,7 @@ public:
     std::ofstream save_final_optimized_cuboids;
     void SaveOptimizedCuboidsToTxt();
     bool done_save_obj_to_txt = false;
-    unsigned int final_object_record_frame_ind;
+    unsigned int final_object_record_frame_ind = 1100; // for kitti seq 07 
 
     // ground detection
     float nominal_ground_height;

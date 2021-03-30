@@ -3,7 +3,7 @@
     <node pkg="object_slam" type="object_slam_node" name="object_slam_node" output="screen">	
     </node>
     
-    <param name="base_folder" value="$(find object_slam)/data/" />
+    <param name="base_folder" value="/home/yuli/Software/data_rgbd/17_monitor_front" />
     
     <param name="online_detect_mode" value="true" />  # detect cuboid online or read offline matlab txt
     <param name="save_results_to_txt" value="false" />

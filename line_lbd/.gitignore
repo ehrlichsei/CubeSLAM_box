@@ -1,3 +1,7 @@
+build/
+line_lbd/.vscode/launch.json
+line_lbd/.vscode/tasks.json
 *.pyc
 .cache
 *~
+

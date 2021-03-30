@@ -45,7 +45,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-
     // Retrieve paths to images
     vector<string> vstrImageFilenames;
     vector<double> vTimestamps;

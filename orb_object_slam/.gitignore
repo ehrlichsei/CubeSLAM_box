@@ -5,6 +5,7 @@ Outputs/AllFrameTrajectory.txt
 Outputs/AllFrameTrajectoryKITTI.txt
 Outputs/KeyFrameTrajectory.txt
 Vocabulary/ORBvoc.bin
+Vocabulary/ORBvoc.txt
 Thirdparty/DBoW2/build/
 Thirdparty/DBoW2/lib/
 Thirdparty/g2o/build/

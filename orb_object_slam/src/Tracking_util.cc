@@ -105,6 +105,7 @@ void Tracking::SaveOptimizedCuboidsToTxt()
 											 << "\n";
 			}
 		}
+		std::cout<<"!!!save_online_detected_cuboids txt closed"<<std::endl;
 		save_final_optimized_cuboids.close();
 		save_online_detected_cuboids.close();
 	}

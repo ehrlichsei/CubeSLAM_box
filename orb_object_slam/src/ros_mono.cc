@@ -33,6 +33,7 @@
 #include "Parameters.h"
 #include "tictoc_profiler/profiler.hpp"
 
+
 using namespace std;
 
 class ImageGrabber
@@ -99,6 +100,8 @@ int main(int argc, char **argv)
 
     if (scene_name.compare(std::string("kitti")) == 0)
         ORB_SLAM2::scene_unique_id = ORB_SLAM2::kitti;
+        else if (scene_name.compare(std::string("living_room")) == 0)
+        ORB_SLAM2::scene_unique_id = ORB_SLAM2::living_room;
 
     cout << "Base_data_folder:  " << ORB_SLAM2::base_data_folder << endl;
 

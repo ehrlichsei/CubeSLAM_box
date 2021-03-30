@@ -63,7 +63,8 @@ extern bool draw_nonlocal_mappoint;
 enum Scene_Name
 {
     voidtype = 0,
-    kitti
+    kitti,
+    living_room
 };
 extern Scene_Name scene_unique_id;
 extern std::string base_data_folder;

@@ -14,3 +14,44 @@ In the launch file, choose to set some parameters.
 
 # Maintainer and contacts
 Shichao Yang (shichaoy@andrew.cmu.edu)
+
+# compile
+in the ~/LINE_LBD/build folder type in 
+```
+cmake..
+```
+```
+make
+```
+# run
+./linelbd_detect /home/yuli/Software/data/dataset/living_room_traj2n_frei_png/rgb
+
+# run with kitti
+./linelbd_detect /home/yuli/Software/data/dataset/KITTI/07/image_1
+
+
+by Yuli
+if want to run pure line_lbd for detecting lines, then change CMakeLists_seperate.txt to CMakeLists.txt
+
+if want to run SLAM, then change 
+CMakeLists_old.txt to CMakeLists.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

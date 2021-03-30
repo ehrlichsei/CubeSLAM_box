@@ -171,6 +171,7 @@ nav_msgs::Odometry posenode_to_odommsgs(const g2o::SE3Quat &pose_Twc,const std_m
 void publish_all_poses(std::vector<tracking_frame*> all_frames,std::vector<object_landmark*> cube_landmarks_history,
 		       std::vector<object_landmark*> all_frame_rawcubes, Eigen::MatrixXd& truth_frame_poses)
 {
+	std::cout<<"entering publish function"<<endl;
     ros::NodeHandle n;
     ros::Publisher pub_slam_all_poses = n.advertise<geometry_msgs::PoseArray>("/slam_pose_array", 10);
     ros::Publisher pub_slam_odompose = n.advertise<nav_msgs::Odometry>("/slam_odom_pose", 10);
@@ -202,18 +203,21 @@ void publish_all_poses(std::vector<tracking_frame*> all_frames,std::vector<objec
 	postamp.header = pose_header;
 	path_preds.poses.push_back(postamp);
     }
-    if (truth_frame_poses.rows()>0)
+    if (truth_frame_poses.rows()>1) // contain all cam truth poses
     {
 	for (int i=0; i < total_frame_number;i++)
 	{
+		
 	    geometry_msgs::Pose pose_msg;
 	    pose_msg.position.x=truth_frame_poses(i,1);    pose_msg.position.y=truth_frame_poses(i,2);    pose_msg.position.z=truth_frame_poses(i,3);
 	    pose_msg.orientation.x = truth_frame_poses(i,4);	pose_msg.orientation.y = truth_frame_poses(i,5);
 	    pose_msg.orientation.z = truth_frame_poses(i,6);	pose_msg.orientation.w = truth_frame_poses(i,7);
 	    all_truth_pose_array.poses.push_back(pose_msg);
-	    nav_msgs::Odometry odom_msg;odom_msg.pose.pose=pose_msg;
+	    nav_msgs::Odometry odom_msg;
+		odom_msg.pose.pose=pose_msg;
 	    odom_msg.header = pose_header;
 	    all_truth_pose_odoms.push_back(odom_msg);
+		// std::cout<<"truth pose_msg: "<<pose_msg<<std::endl;
 	    
 	    geometry_msgs::PoseStamped postamp;
 	    postamp.pose = pose_msg;
@@ -224,11 +228,12 @@ void publish_all_poses(std::vector<tracking_frame*> all_frames,std::vector<objec
     all_pred_pose_array.header.stamp=ros::Time::now();    all_pred_pose_array.header.frame_id="/world";
     all_truth_pose_array.header.stamp=ros::Time::now();    all_truth_pose_array.header.frame_id="/world";
     
+	std::cout<<"after give value to truth msg"<<endl;
         
     if (save_results_to_txt)  // record cam pose and object pose
     {
 	ofstream resultsFile;
-	string resultsPath = base_folder + "output_cam_poses.txt";
+	string resultsPath = base_folder + "/SLAM_output/output_cam_poses.txt";
 	cout<<"resultsPath  "<<resultsPath<<endl;
 	resultsFile.open(resultsPath.c_str());
 	resultsFile << "# timestamp tx ty tz qx qy qz qw"<<"\n";
@@ -242,10 +247,12 @@ void publish_all_poses(std::vector<tracking_frame*> all_frames,std::vector<objec
 	resultsFile.close();
 		
 	ofstream objresultsFile;
-	string objresultsPath = base_folder + "output_obj_poses.txt";
+	string objresultsPath = base_folder + "/SLAM_output/output_obj_poses.txt";
 	objresultsFile.open(objresultsPath.c_str());
 	for (size_t j=0;j<cube_landmarks_history.size();j++)
 	{
+		// std::cout<<"before saving all frames cuboid:"<<all_frames[j]->observed_cuboids[0]->cube_meas.pose.translation()<<std::endl;
+
 	    g2o::cuboid cube_opti = cube_landmarks_history[j]->cube_vertex->estimate();
 	    // transform it to local ground plane.... suitable for matlab processing.
 	    objresultsFile << cube_opti.toMinimalVector().transpose()<<" "<<"\n";
@@ -255,10 +262,14 @@ void publish_all_poses(std::vector<tracking_frame*> all_frames,std::vector<objec
     
     // sensor parameter for TUM cabinet data!
     Eigen::Matrix3f calib;
-    float depth_map_scaling = 5000;
-    calib<<535.4,  0, 320.1,
-	    0,  539.2, 247.6,
-	    0,      0,     1;
+    float depth_map_scaling = 5000; 
+	calib << 614.1169, 0, 315.9999,   // for realsense data
+        0, 614.0930, 243.0599,
+        0, 0, 1.0000;
+    // calib<<535.4,  0, 320.1,
+	//     0,  539.2, 247.6,
+	//     0,      0,     1;
+
     set_up_calibration(calib,480,640);
     
     visualization_msgs::MarkerArray finalcube_markers = cuboids_to_marker(cube_landmarks_history.back(),Vector3d(0,1,0));
@@ -273,13 +284,18 @@ void publish_all_poses(std::vector<tracking_frame*> all_frames,std::vector<objec
     {
 	frame_number++;
 	
-	if (0) // directly show final results
+	if (1) // directly show final results
 	{
-	    pub_slam_all_poses.publish(all_pred_pose_array);	pub_truth_all_poses.publish(all_truth_pose_array);
-	    pub_slam_path.publish(path_preds);	pub_truth_path.publish(path_truths);
+	    pub_slam_all_poses.publish(all_pred_pose_array);
+		pub_slam_path.publish(path_preds);	
+		if(truth_frame_poses.rows()>1)	
+		{pub_truth_all_poses.publish(all_truth_pose_array);
+		pub_truth_path.publish(path_truths);}
+		
 	}
 	pub_final_opti_cube.publish(finalcube_markers);
 	
+	// std::cout<<"before publishing increment"<<endl;
 	if (frame_number<total_frame_number)
 	{
 	    // publish cuboid landmarks, after each frame's g2o optimization
@@ -292,22 +308,24 @@ void publish_all_poses(std::vector<tracking_frame*> all_frames,std::vector<objec
 
 	    // publish camera pose estimation of this frame
 	    pub_slam_odompose.publish(all_pred_pose_odoms[frame_number]);
+		if (truth_frame_poses.rows()>1)
 	    pub_truth_odompose.publish(all_truth_pose_odoms[frame_number]);
 	    
 // 	    std::cout<<"Frame position x/y:   "<<frame_number<<"        "<<all_pred_pose_odoms[frame_number].pose.pose.position.x<<"  "<<
 // 			  all_pred_pose_odoms[frame_number].pose.pose.position.y <<std::endl;
 
-	    char frame_index_c[256];	sprintf(frame_index_c,"%04d",frame_number);  // format into 4 digit
+	    char frame_index_c[256];	sprintf(frame_index_c,"%06d",frame_number);  // format into 4 digit
 	    
 	    cv::Mat cuboid_2d_proj_img = all_frames[frame_number]->cuboids_2d_img;
 	    
-	    std::string raw_rgb_img_name = base_folder+"raw_imgs/" + std::string(frame_index_c) + "_rgb_raw.jpg";
+	    std::string raw_rgb_img_name = base_folder+"/1_rgb/" + std::string(frame_index_c) + ".png";
 	    cv::Mat raw_rgb_img = cv::imread(raw_rgb_img_name, 1);
 
-	    if (show_truth_cloud && (truth_frame_poses.rows()>0))
-		if (frame_number%2==0) // show point cloud every N frames
+		// std::cout<<"before cloud"<<endl;
+	    if (show_truth_cloud && (truth_frame_poses.rows()>1))
+		if (frame_number%4==0) // show point cloud every N frames
 		{
-		    std::string raw_depth_img_name = base_folder+"depth_imgs/" + std::string(frame_index_c) + "_depth_raw.png";
+		    std::string raw_depth_img_name = base_folder+"/4_depth/" + std::string(frame_index_c) + ".png";
 		    cv::Mat raw_depth_img = cv::imread(raw_depth_img_name, CV_LOAD_IMAGE_ANYDEPTH);
 		    raw_depth_img.convertTo(raw_depth_img, CV_32FC1, 1.0/depth_map_scaling,0);
 
@@ -344,11 +362,21 @@ void publish_all_poses(std::vector<tracking_frame*> all_frames,std::vector<objec
 void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen::MatrixXd& init_frame_poses, Eigen::MatrixXd& truth_frame_poses)
 {  
     Eigen::Matrix3d calib; 
-    calib<<535.4,  0,  320.1,   // for TUM cabinet data.
-	    0,  539.2, 247.6,
-	    0,      0,     1;    
-    
-    int total_frame_number = truth_frame_poses.rows();
+    // calib<<535.4,  0,  320.1,   // for TUM cabinet data.
+	//     0,  539.2, 247.6,
+	//     0,      0,     1;   
+	calib << 614.1169, 0, 315.9999,   // for realsense data
+        0, 614.0930, 243.0599,
+        0, 0, 1.0000;
+	int total_frame_number;
+    if (truth_frame_poses.rows()>1)
+	total_frame_number = truth_frame_poses.rows();
+	else 
+	{
+	total_frame_number = 43; // for tvmonitor
+	// total_frame_number = 58; // for cabinet
+	std::cout<<"setting my own total frame: "<<total_frame_number<<endl;
+	}
 
     // detect all frames' cuboids.
     detect_3d_cuboid detect_cuboid_obj;
@@ -365,7 +393,6 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
     line_lbd_obj.use_LSD = true;
     line_lbd_obj.line_length_thres = 15;  // remove short edges
     
-    
     // graph optimization.
     //NOTE in this example, there is only one object!!! perfect association
     g2o::SparseOptimizer graph;
@@ -375,9 +402,10 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
     graph.setAlgorithm(solver);    graph.setVerbose(false);
 
-    
+	std::cout<<"before initializing cam pose"<<std::endl;
     // only first truth pose is used. to directly visually compare with truth pose. also provide good roll/pitch
-    g2o::SE3Quat fixed_init_cam_pose_Twc(truth_frame_poses.row(0).tail<7>());
+	g2o::SE3Quat fixed_init_cam_pose_Twc(truth_frame_poses.row(0).tail<7>());
+	std::cout<<"truth pose first frame:"<<truth_frame_poses.row(0).tail<7>()<<std::endl;
     
     // save optimization results of each frame
     std::vector<object_landmark*> cube_pose_opti_history(total_frame_number, nullptr);  //landmark pose after each frame's optimization
@@ -391,7 +419,13 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
     // process each frame online and incrementally
     for (int frame_index=0;frame_index<total_frame_number;frame_index++)
     {
+		std::cout<<"frame_index:"<<frame_index<<std::endl;
+    //   std::cout<<"total_frame_number:"<<total_frame_number<<std::endl;
 	  g2o::SE3Quat curr_cam_pose_Twc;
+	  g2o::SE3Quat curr_cam_pose_Twc_middle;
+	  Eigen::Vector3d trans_t;
+	  Eigen::Vector3d new_trans_t;
+	  Eigen::Quaterniond quat_R;
 	  g2o::SE3Quat odom_val; // from previous frame to current frame
 	  
 	  if (frame_index==0)
@@ -404,7 +438,15 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 		    g2o::SE3Quat prev_prev_pose_Tcw = all_frames[frame_index-2]->cam_pose_Tcw;
 		    odom_val = prev_pose_Tcw*prev_prev_pose_Tcw.inverse();
 		}
+		// std::cout<<"odom_val:"<<odom_val<<std::endl;
 		curr_cam_pose_Twc = (odom_val*prev_pose_Tcw).inverse();
+		// trans_t = curr_cam_pose_Twc_middle.translation();
+		// new_trans_t << trans_t(0),trans_t(1),0.6;
+		// quat_R = curr_cam_pose_Twc_middle.rotation();
+		// g2o::SE3Quat comb_curr_cam_pose(quat_R,new_trans_t);
+		// curr_cam_pose_Twc = comb_curr_cam_pose;
+		// std::cout<<"cam trans:"<<curr_cam_pose_Twc.translation().transpose()<<std::endl;
+		// curr_cam_pose_Twc = fixed_init_cam_pose_Twc;
 	  }
             
 	  
@@ -415,13 +457,14 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	  
 	  bool has_detected_cuboid = false;
 	  g2o::cuboid cube_local_meas; double proposal_error;
-	  char frame_index_c[256];	sprintf(frame_index_c,"%04d",frame_index);  // format into 4 digit
+	  char frame_index_c[256];	sprintf(frame_index_c,"%06d",frame_index);  // format into 4 digit
 	  
+	//   std::cout<<"before starting detect"<<std::endl;
 	  // read or detect cuboid
 	  if (online_detect_mode)
 	  {
 	      //start detect cuboid
-	      cv::Mat raw_rgb_img = cv::imread(base_folder+"raw_imgs/"+frame_index_c+"_rgb_raw.jpg", 1);
+	      cv::Mat raw_rgb_img = cv::imread(base_folder+"/1_rgb/"+frame_index_c+".png", 1);
 	    
 	      //edge detection
 	      cv::Mat all_lines_mat;
@@ -434,41 +477,58 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	      
 	      //read cleaned yolo 2d object detection
 	      Eigen::MatrixXd raw_2d_objs(10,5);  // 2d rect [x1 y1 width height], and prob
-	      if (!read_all_number_txt(base_folder+"/filter_2d_obj_txts/"+frame_index_c+"_yolo2_0.15.txt", raw_2d_objs))
+		  std::vector<string> object_classes;
+	      if (!read_obj_detection_txt(base_folder+"/2_bbox/yolov3_bbox/"+frame_index_c+"_yolov3_0.15.txt", raw_2d_objs,object_classes))
 		  return;
-	      raw_2d_objs.leftCols<2>().array() -=1;   // change matlab coordinate to c++, minus 1
+
+		  // use offline line edges
+		  Eigen::MatrixXd cur_all_lines_raw(100, 4); // 100 is some large frame number,   the txt edge index start from 0
+          read_all_number_txt(base_folder + "/3_line_lbd/line_txt/" + frame_index_c + "_edge.txt", cur_all_lines_raw);
 	      
 	      Matrix4d transToWolrd;
-	      detect_cuboid_obj.whether_sample_cam_roll_pitch = (frame_index!=0); // first frame doesn't need to sample cam pose. could also sample. doesn't matter much
-	      if (detect_cuboid_obj.whether_sample_cam_roll_pitch) //sample around first frame's pose
-		  transToWolrd = fixed_init_cam_pose_Twc.to_homogeneous_matrix();
+	      detect_cuboid_obj.whether_sample_cam_roll_pitch = 1; // first frame doesn't need to sample cam pose. could also sample. doesn't matter much
+	    //   FIX it
+		  if (1 ) //sample around first frame's pose
+		  {transToWolrd = fixed_init_cam_pose_Twc.to_homogeneous_matrix();
+		  }
 	      else
-		  transToWolrd = curr_cam_pose_Twc.to_homogeneous_matrix();
+		  {transToWolrd = curr_cam_pose_Twc.to_homogeneous_matrix();}
 	      
 	      std::vector<ObjectSet> frames_cuboids; // each 2d bbox generates an ObjectSet, which is vector of sorted proposals
-	      detect_cuboid_obj.detect_cuboid(raw_rgb_img,transToWolrd,raw_2d_objs,all_lines_raw, frames_cuboids);
-	      currframe->cuboids_2d_img = detect_cuboid_obj.cuboids_2d_img;
+	    //   std::cout<<"before detecting function"<<std::endl;
+		//   std::cout<<"transToWolrd:"<<transToWolrd<<std::endl;
+		//   std::cout<<"raw_2d_objs:"<<raw_2d_objs<<std::endl;
+		//   std::cout<<"line_lbd size:"<< cur_all_lines_raw.rows()<<std::endl;
+		  detect_cuboid_obj.detect_cuboid(raw_rgb_img,transToWolrd,raw_2d_objs,all_lines_raw, frames_cuboids);
+        //   std::cout<<"raw Kalib:"<< detect_cuboid_obj.cam_pose.Kalib<<std::endl;
+		
+		//   std::cout<<"after detecting function"<<std::endl;
+		  currframe->cuboids_2d_img = detect_cuboid_obj.cuboids_2d_img;
 	      
 	      has_detected_cuboid = frames_cuboids.size()>0 && frames_cuboids[0].size()>0;
 	      if (has_detected_cuboid)  // prepare object measurement
-	      {
+	      {	
+		//   std::cout<<"pos:"<< frames_cuboids[0][0]->pos.transpose()<<std::endl;
 		  cuboid* detected_cube = frames_cuboids[0][0];  // NOTE this is a simple dataset, only one landmark
 
 		  g2o::cuboid cube_ground_value; //cuboid in the local ground frame.
 		  Vector9d cube_pose;cube_pose<<detected_cube->pos(0),detected_cube->pos(1),detected_cube->pos(2),
 			  0,0,detected_cube->rotY,detected_cube->scale(0),detected_cube->scale(1),detected_cube->scale(2);  // xyz roll pitch yaw scale
 		  cube_ground_value.fromMinimalVector(cube_pose);
-		  cube_local_meas = cube_ground_value.transform_to(curr_cam_pose_Twc); // measurement is in local camera frame
-
-		  if (detect_cuboid_obj.whether_sample_cam_roll_pitch)  //if camera roll/pitch is sampled, transform to the correct camera frame.
-		  {
-		      Vector3d new_camera_eulers =  detect_cuboid_obj.cam_pose_raw.euler_angle;
-		      new_camera_eulers(0) += detected_cube->camera_roll_delta; new_camera_eulers(1) += detected_cube->camera_pitch_delta;
-		      Matrix3d rotation_new = euler_zyx_to_rot<double>(new_camera_eulers(0),new_camera_eulers(1),new_camera_eulers(2));
-		      Vector3d trans = transToWolrd.col(3).head<3>();
-		      g2o::SE3Quat curr_cam_pose_Twc_new(rotation_new,trans);
-		      cube_local_meas = cube_ground_value.transform_to(curr_cam_pose_Twc_new);
-		  }
+		  /// FIXed
+		  cube_local_meas = cube_ground_value.transform_to(fixed_init_cam_pose_Twc); // measurement is in local camera frame
+		//   if (detect_cuboid_obj.whether_sample_cam_roll_pitch)  //if camera roll/pitch is sampled, transform to the correct camera frame.
+		//   {
+		//       Vector3d new_camera_eulers =  detect_cuboid_obj.cam_pose_raw.euler_angle;
+		//       new_camera_eulers(0) += detected_cube->camera_roll_delta; new_camera_eulers(1) += detected_cube->camera_pitch_delta;
+		//       Matrix3d rotation_new = euler_zyx_to_rot<double>(new_camera_eulers(0),new_camera_eulers(1),new_camera_eulers(2));
+		//       Vector3d trans = transToWolrd.col(3).head<3>();
+		//       g2o::SE3Quat curr_cam_pose_Twc_new(rotation_new,trans);
+		//       cube_local_meas = cube_ground_value.transform_to(curr_cam_pose_Twc_new);
+		//   }
+		  std::cout<<"cube ground meas:"<<cube_ground_value.pose.translation().transpose()<<std::endl;
+		//   std::cout<<"fixed_init_cam_pose_Twc:"<<fixed_init_cam_pose_Twc<<std::endl;
+		  std::cout<<"cube local meas:"<<cube_local_meas.pose.translation().transpose()<<std::endl;
 		  proposal_error = detected_cube->normalized_error;
 	      }
 	  }
@@ -479,17 +539,21 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	      if (has_detected_cuboid)  // prepare object measurement   not all frame has observation!!
 	      {
 		  VectorXd measure_data = offline_pred_frame_objects.row(offline_cube_obs_row_id);
-		  g2o::cuboid cube_ground_value; 
+		  g2o::cuboid cube_ground_value;  // ground = world
 		  Vector9d cube_pose;cube_pose<<measure_data(1),measure_data(2),measure_data(3),0,0,measure_data(4),
 						measure_data(5),measure_data(6),measure_data(7);  // xyz roll pitch yaw scale
+		//   std::cout<<"pos offline:"<< cube_pose<<std::endl;
 		  cube_ground_value.fromMinimalVector(cube_pose);
 		  Eigen::VectorXd cam_pose_vec = init_frame_poses.row(frame_index);
 		  g2o::SE3Quat cam_val_Twc(cam_pose_vec.segment<7>(1)); // time x y z qx qy qz qw
-		  cube_local_meas = cube_ground_value.transform_to(cam_val_Twc); // measurement is in local camera frame
+		  cube_local_meas = cube_ground_value.transform_to(cam_val_Twc); // measurement is in local/camera frame
+	      
+		  std::cout<<"cube ground meas:"<<cube_ground_value.pose.translation().transpose()<<std::endl;
+		//   std::cout<<"cam_val_Twc:"<<cam_val_Twc<<std::endl;
 		  proposal_error = measure_data(8);
-		  
+		  std::cout<<"cube local meas:"<<cube_local_meas.pose.translation().transpose()<<std::endl;
 		  // read offline saved 2d image
-		  std::string detected_cube_2d_img_name = base_folder+"pred_3d_obj_overview/" + std::string(frame_index_c) + "_best_objects.jpg";
+		  std::string detected_cube_2d_img_name = base_folder+"/pred_3d_obj_overview/" + std::string(frame_index_c) + "_best_objects.jpg";
 		  currframe->cuboids_2d_img = cv::imread(detected_cube_2d_img_name, 1);
 		  
 		  offline_cube_obs_row_id++; // switch to next row  NOTE at most one object one frame in this data
@@ -502,7 +566,7 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	      
 	      localcuboid->cube_meas = cube_local_meas;
 	      localcuboid->meas_quality = (1-proposal_error+0.5)/2;  // initial error 0-1, higher worse,  now change to [0.5,1] higher, better
-	      currframe->observed_cuboids.push_back(localcuboid);
+	      currframe->observed_cuboids.push_back(localcuboid); // cuboids in camera frame
 	  }
 	  
 	  
@@ -516,7 +580,8 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	      vCube->setFixed(false);
 	      graph.addVertex(vCube);
 	  }
-	  
+
+	 std::cout<<"curr_cam_pose_Twc:"<<curr_cam_pose_Twc<<std::endl;
 	  
 	  // set up g2o camera vertex
 	  g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
@@ -531,6 +596,7 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	  if (currframe->observed_cuboids.size()>0)
 	  {
 		object_landmark* cube_landmark_meas = all_frames[frame_index]->observed_cuboids[0];
+		// std::cout<<"all frames cuboid:"<<all_frames[frame_index]->observed_cuboids[0]->cube_meas.pose.translation()<<std::endl;
 		g2o::EdgeSE3Cuboid* e = new g2o::EdgeSE3Cuboid();
 		e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>( vSE3 ));
 		e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>( vCube ));
@@ -561,7 +627,7 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	  graph.initializeOptimization();
 	  graph.optimize(5); // do optimization!
 	  
-	  
+	//   std::cout<<"after each frame optimization:"<<frame_index<<std::endl;
 	  // retrieve the optimization result, for debug visualization
 	  for (int j=0;j<=frame_index;j++)
 	  {
@@ -571,6 +637,7 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	  object_landmark* current_landmark = new object_landmark();  current_landmark->cube_vertex = new g2o::VertexCuboid();
 	  current_landmark->cube_vertex->setEstimate(vCube->estimate());
 	  cube_pose_opti_history[frame_index] = current_landmark;
+	//   std::cout<<"debug position 1"<<std::endl;
 	  
 	  if (all_frames[frame_index]->observed_cuboids.size()>0)
 	  {
@@ -584,7 +651,11 @@ void incremental_build_graph(Eigen::MatrixXd& offline_pred_frame_objects, Eigen:
 	  }
 	  else
 	      cube_pose_raw_detected_history[frame_index] = nullptr;
-    }
+	//   std::cout<<"debug position 2"<<std::endl;
+	// std::cout<<"after opti all frames cuboid:"<<all_frames[frame_index]->observed_cuboids[0]->cube_meas.pose.translation().transpose()<<std::endl;
+	// std::cout<<"after opti history frames cuboid:"<<cube_pose_opti_history[frame_index]->cube_vertex->estimate().toMinimalVector().transpose()<<std::endl;
+	
+	}
     
     cout<<"Finish all optimization! Begin visualization."<<endl;
     
@@ -614,20 +685,22 @@ int main(int argc,char* argv[])
     //NOTE important
     // in online mode, pred_frame_objects and init_frame_poses are not used. only first frame of truth_frame_poses is used.
     
-    std::string pred_objs_txt = base_folder+"detect_cuboids_saved.txt";  // saved cuboids in local ground frame.
-    std::string init_camera_pose = base_folder+"pop_cam_poses_saved.txt"; // offline camera pose for cuboids detection (x y yaw=0, truth roll/pitch/height)
-    std::string truth_camera_pose = base_folder+"truth_cam_poses.txt";
+    std::string pred_objs_txt = base_folder+"/detect_cuboids_saved.txt";  // saved cuboids in local ground frame.
+    std::string init_camera_pose = base_folder+ "/5_odometry/output_cam_poses.txt"; // offline camera pose for cuboids detection (x y yaw=0, truth roll/pitch/height)
+    std::string truth_camera_pose = base_folder+"/5_odometry/truth_cam_poses.txt";
     Eigen::MatrixXd pred_frame_objects(100,10);  // 100 is some large row number, each row in txt has 10 numbers
     Eigen::MatrixXd init_frame_poses(100,8);
     Eigen::MatrixXd truth_frame_poses(100,8);
 
     if (!read_all_number_txt(pred_objs_txt,pred_frame_objects))
-	return -1;
+		{cout<<"no pre cuboids, but continue using online detection..."<<endl;
+		pred_frame_objects.resize(0,10);}
     if (!read_all_number_txt(init_camera_pose,init_frame_poses))
-	return -1;
+		{cout<<"no offline cam poses, but continue using online detection..."<<endl;
+		init_frame_poses.resize(0,8);}
     if (!read_all_number_txt(truth_camera_pose,truth_frame_poses))
-	return -1;
-        
+		{cout<<"no truth cam poses, at least one initial cam pose!!!"<<endl;
+		return -1;}
     std::cout<<"read data size:  "<<pred_frame_objects.rows()<<"  "<<init_frame_poses.rows()<<"  "<<truth_frame_poses.rows()<<std::endl;
     
     incremental_build_graph(pred_frame_objects,init_frame_poses,truth_frame_poses);    
