@@ -38,40 +38,7 @@ rosrun orb_object_slam ros_mono /home/yuli/Software/cubeslam_ws/src/cube_slam/or
 
 ## run by roslaunch
 
-```
-roslaunch orb_object_slam object_livingroom.launch
-```
-## run rosbag
-
-run the imagie rosbag
-according to the situation, whether to change the topic of the rosbag
-```
-rosbag play '/home/yuli/Software/data/data_rosbag/living_room.bag' /camera/image:=/camera/image_raw 
-```
-
-or 
-```
-rosbag play '/home/yuli/Software/data/data_rosbag/living_room_complete.bag' /camera/image:=/camera/image_raw 
-```
-
-# how to run orb_object_slam for KITTI 07 online
-## change the code
-in tracking.cc 
-change the text around line 1587
-
-char frame_index_c_line[256];
-sprintf(frame_index_c_line, "%06d", (int)pKF->mnFrameId); // format into 6 digit
-char frame_index_c_yolo[256];
-sprintf(frame_index_c_yolo, "%06d", (int)pKF->mnFrameId); // format into 6 digit
-
-// sprintf(obj_2d_txt_postfix, "_yolov3_%.2f.txt", obj_det_2d_thre);
-sprintf(obj_2d_txt_postfix, "_3d_cuboids.txt");
-
-
-## run by roslaunch
-
 roslaunch orb_object_slam object_kitti.launch
-
 rosbag play '/home/yuli/Software/data_rgbd/6_kitti_seq09/kitti_seq09.bag' kitti/left/image_raw:=/camera/image_raw --clock -r 0.5
 
 roslaunch orb_object_slam object_monitor.launch
