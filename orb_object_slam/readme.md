@@ -38,28 +38,7 @@ rosrun orb_object_slam ros_mono /home/yuli/Software/cubeslam_ws/src/cube_slam/or
 
 ## run by roslaunch
 
-```
-roslaunch orb_object_slam object_livingroom.launch
-```
-## run rosbag
-
-run the imagie rosbag
-according to the situation, whether to change the topic of the rosbag
-```
-rosbag play '/home/yuli/Software/data/data_rosbag/living_room.bag' /camera/image:=/camera/image_raw 
-```
-
-or 
-```
-rosbag play '/home/yuli/Software/data/data_rosbag/living_room_complete.bag' /camera/image:=/camera/image_raw 
-```
-
-
-
-## run by roslaunch
-
 roslaunch orb_object_slam object_kitti.launch
-
 rosbag play '/home/yuli/Software/data_rgbd/6_kitti_seq09/kitti_seq09.bag' kitti/left/image_raw:=/camera/image_raw --clock -r 0.5
 
 roslaunch orb_object_slam object_monitor.launch
